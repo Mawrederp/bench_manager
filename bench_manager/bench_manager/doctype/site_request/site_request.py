@@ -55,3 +55,17 @@ def verify_account(name, code):
 		enqueue(create_site, site=site.name)
 	else:
 		return "Wapi"
+
+def create_site_request(doc, method):
+	
+	sr = frappe.new_doc("Site Request")
+	sr.update(dict(
+		full_name= doc.full_name,
+		email= doc.email,
+		mobile_number= doc.mobile_number,
+		employee_count= doc.employee_count if doc.employee_count else 0,
+		association_name= doc.association_name,
+		activity= doc.activity if doc.activity else ""
+		)
+	)
+	sr.save()
