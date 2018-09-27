@@ -23,13 +23,14 @@ def id_generator(size=50, chars=string.ascii_lowercase + string.ascii_uppercase 
 def notify_user(doc):
 	site = frappe.get_doc("Site Request", doc)
 	site.check_permission("email")
-
+	main_domain = frappe.db.get_value("SAAS Settings", None, "main_domain")
+	
 	if site.status == "Pending Approval":
 		site.email_verification_code = id_generator()
 		frappe.sendmail(
 			recipients = [site.email],
 			subject="Validate your account",
-			message = "Please validate your email, click on this link: http://nasaqerp.com/api/method/bench_manager.api.verify_account?name=%s&code=%s" % (site.name,site.email_verification_code),
+			message = "Please validate your email, click on this link: https://"+main_domain+"/api/method/bench_manager.api.verify_account?name=%s&code=%s" % (site.name,site.email_verification_code),
 			reference_doctype=site.doctype,
 			reference_name=site.name
 		)
