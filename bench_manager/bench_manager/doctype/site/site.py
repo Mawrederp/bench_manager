@@ -216,7 +216,7 @@ def create_site(site_name, install_erpnext, mysql_password, admin_password, key)
 	frappe.enqueue('bench_manager.bench_manager.utils.run_command',
 		commands=commands,
 		doctype="Bench Settings",
-		key=key
+		key=key,timeout=1500
 	)
 	all_sites = safe_decode(check_output("ls")).strip('\n').split('\n')
 	while site_name not in all_sites:
