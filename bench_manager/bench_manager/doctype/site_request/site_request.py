@@ -78,4 +78,4 @@ def create_site_request(doc, method):
 		activity= doc.activity if doc.activity else ""
 		)
 	)
-	sr.save()
+	sr.save(ignore_permissions=True)
