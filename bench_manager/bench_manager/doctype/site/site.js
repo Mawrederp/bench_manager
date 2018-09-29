@@ -230,7 +230,7 @@ frappe.ui.form.on('Site', {
 		frm.add_custom_button(__('View site'), () => {
 			frappe.db.get_value('Bench Settings', 'Bench Settings', 'webserver_port',
 				(r) => {
-					window.open(`http://${frm.doc.name}:${r.webserver_port}`, '_blank');
+					window.open(`http://${frm.doc.name}`, '_blank');
 				}
 			);
 		});

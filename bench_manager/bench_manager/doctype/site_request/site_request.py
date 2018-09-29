@@ -10,10 +10,19 @@ import string
 import random
 from frappe.utils.background_jobs import enqueue
 import subprocess
+import re
+
 
 
 class SiteRequest(Document):
-	pass
+	def validate(self):
+		self.validate_subdomain()
+	
+	def validate_subdomain(self):
+		if self.subdomain and self.status == "Pending Approval":
+			clean_string = ''.join(e for e in self.subdomain if e.isalnum())
+			self.subdomain = clean_string.lower()
+			frappe.msgprint(_(self.subdomain))
 
 
 def id_generator(size=50, chars=string.ascii_lowercase + string.ascii_uppercase + string.digits):

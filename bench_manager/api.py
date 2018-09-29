@@ -33,11 +33,11 @@ def verify_account(name, code):
 		frappe.db.commit()
 		main_domain = frappe.db.get_value("SAAS Settings", None, "main_domain")
 		mysql_password = frappe.db.get_value("SAAS Settings", None, "mysql_password")
-		#~ create_site(site.subdomain + "nasaqerp.com" , "true" , "123" ,"123",now_datetime())
-		create_site(site_name=site.subdomain + "."+main_domain , install_erpnext="true" ,
-			mysql_password= "newpwd" ,admin_password="123",key=site.subdomain +"."+main_domain +str(now_datetime()) ,email = site.email)
+		#~ create_site(site.subdomain + "nasaqerp.com" , "true" , "123" ,"123",now_datetime())	
+		#~ create_site(site_name=site.subdomain + "."+main_domain , install_erpnext="true" ,
+			#~ mysql_password= "newpwd" ,admin_password="123",key=site.subdomain +"."+main_domain +str(now_datetime()) ,email = site.email)
 
-		return "https://nama.tech"
+		return _("https://nama.tech")
 	else:
 		return "Wapi"
 
