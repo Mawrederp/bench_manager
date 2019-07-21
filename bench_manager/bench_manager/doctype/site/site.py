@@ -215,11 +215,12 @@ def create_site(site_name, install_erpnext, mysql_password, admin_password, key)
 		commands.append("bench --site {site_name} install-app erpnext".format(site_name=site_name))
 		if 'charity' in app_list:
 			commands.append("bench --site {site_name} install-app charity".format(site_name=site_name))
-
+		if 'stc1' in app_list:
+			commands.append("bench --site {site_name} install-app stc1".format(site_name=site_name))
 	frappe.enqueue('bench_manager.bench_manager.utils.run_command',
 		commands=commands,
 		doctype="Bench Settings",
-		key=key,timeout=1500
+		key=key
 	)
 	all_sites = safe_decode(check_output("ls")).strip('\n').split('\n')
 	while site_name not in all_sites:
