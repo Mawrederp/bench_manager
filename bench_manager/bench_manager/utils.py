@@ -7,8 +7,10 @@ import frappe
 from frappe.model.document import Document
 from subprocess import Popen, PIPE, STDOUT
 import re, shlex
+from frappe.utils.background_jobs import enqueue
 
-def run_command(commands, doctype, key, cwd='..', docname=' ', after_command=None):
+
+def run_command(commands, doctype, key, cwd='..', docname=' ', after_command=None,site_request=None):
 	verify_whitelisted_call()
 	start_time = frappe.utils.time.time()
 	console_dump = ""
@@ -17,9 +19,9 @@ def run_command(commands, doctype, key, cwd='..', docname=' ', after_command=Non
 	sensitive_data = ["--mariadb-root-password", "--admin-password", "--root-password"]
 	for password in sensitive_data:
 		logged_command = re.sub("{password} .*? ".format(password=password), '', logged_command, flags=re.DOTALL)
-	doc = frappe.get_doc({'doctype': 'Bench Manager Command', 'key': key, 'source': doctype+': '+docname,
+	doc = frappe.get_doc({'doctype': 'Bench Manager Command', 'key': key, 'source': doctype+': '+docname,'site_request':site_request,
 		'command': logged_command, 'console': console_dump, 'status': 'Ongoing'})
-	doc.insert()
+	doc.insert(ignore_permissions=True)
 	frappe.db.commit()
 	frappe.publish_realtime(key, "Executing Command:\n{logged_command}\n\n".format(logged_command=logged_command), user=frappe.session.user)
 	try:
@@ -29,11 +31,11 @@ def run_command(commands, doctype, key, cwd='..', docname=' ', after_command=Non
 				frappe.publish_realtime(key, c, user=frappe.session.user)
 				console_dump += c
 		if terminal.wait():
-			_close_the_doc(start_time, key, console_dump, status='Failed', user=frappe.session.user)
+			_close_the_doc(start_time, key, console_dump, status='Failed', user=frappe.session.user,site_request=site_request)
 		else:
-			_close_the_doc(start_time, key, console_dump, status='Success', user=frappe.session.user)
+			_close_the_doc(start_time, key, console_dump, status='Success', user=frappe.session.user,site_request=site_request)
 	except Exception as e:
-		_close_the_doc(start_time, key, "{} \n\n{}".format(e, console_dump), status='Failed', user=frappe.session.user)
+		_close_the_doc(start_time, key, "{} \n\n{}".format(e, console_dump), status='Failed', user=frappe.session.user,site_request=site_request)
 	finally:
 		frappe.db.commit()
 		# hack: frappe.db.commit() to make sure the log created is robust,
@@ -41,20 +43,43 @@ def run_command(commands, doctype, key, cwd='..', docname=' ', after_command=Non
 		frappe.enqueue('bench_manager.bench_manager.utils._refresh',
 			doctype=doctype, docname=docname, commands=commands)
 
-def _close_the_doc(start_time, key, console_dump, status, user):
+def _close_the_doc(start_time, key, console_dump, status, user,site_request=None):
 	time_taken = frappe.utils.time.time() - start_time
 	final_console_dump = ''
 	console_dump = console_dump.split('\n\r')
 	for i in console_dump:
 		i = i.split('\r')
 		final_console_dump += '\n'+i[-1]
-	frappe.set_value('Bench Manager Command', key, 'console', final_console_dump)
-	frappe.set_value('Bench Manager Command', key, 'status', status)
-	frappe.set_value('Bench Manager Command', key, 'time_taken', time_taken)
+	frappe.db.set_value('Bench Manager Command', key, 'console', final_console_dump)
+	frappe.db.set_value('Bench Manager Command', key, 'status', status)
+	frappe.db.set_value('Bench Manager Command', key, 'time_taken', time_taken)
+	frappe.db.commit()
+	if site_request:
+		main_domain = frappe.db.get_value("SAAS Settings", None, "main_domain")
+		mysql_password = frappe.db.get_value("SAAS Settings", None, "mysql_password")
+		admin_password = frappe.db.get_value("SAAS Settings", None, "admin_password")
+		email = frappe.db.get_value("Site Request", site_request, "email")
+		customers = frappe.db.get_list("Customer",{"customer_email":email}, ignore_permissions=True)
+		if customers : 
+			customer =frappe.get_doc("Customer",{"customer_email":email})			
+			
+		site_name = frappe.db.get_value('Site Request', site_request, 'subdomain')+"."+main_domain
+		email_args = {
+			"recipients": email,
+			"sender": None,
+			"subject": "Your New site created "+site_name,
+			"message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
+			"now": True,
+		}
+		enqueue(method=frappe.sendmail, queue='short', timeout=300, is_async=True, **email_args)
 	frappe.publish_realtime(key, '\n\n'+status+'!\nThe operation took '+str(time_taken)+' seconds', user=user)
+	
 
 def _refresh(doctype, docname, commands):
-	frappe.get_doc(doctype, docname).run_method('after_command', commands=commands)
+	try:
+		frappe.get_doc(doctype, docname).run_method('after_command', commands=commands)
+	except:
+		pass
 
 @frappe.whitelist()
 def verify_whitelisted_call():

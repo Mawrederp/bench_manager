@@ -17,7 +17,22 @@ import re
 class SiteRequest(Document):
 	def validate(self):
 		self.validate_subdomain()
-	
+		
+	def after_command(self, commands=None):
+		settings = frappe.get_single('SAAS Settings')
+		site_name = customer.site_name +"."+settings.main_domain
+		mysql_password = settings.mysql_password
+		admin_password = settings.admin_password
+		email_args = {
+			"recipients": doc.email,
+			"sender": None,
+			"subject": "Your New site created "+site_name,
+			"message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
+			"now": True,
+		}
+		enqueue(method=frappe.sendmail, queue='short', timeout=300, is_async=True, **email_args)
+		
+		
 	def validate_subdomain(self):
 		if self.subdomain and self.status == "Pending Approval":
 			clean_string = ''.join(e for e in self.subdomain if e.isalnum())
@@ -66,16 +81,27 @@ def verify_account(name, code):
 	else:
 		return "Wapi"
 
-def create_site_request(doc, method):
+def create_site_request_and_site(doc, method):
+	if doc.user_type == "Website User" and doc.get_db_value("enabled") == 0 and doc.enabled ==1:
+		sr_doc = create_site_request(doc, method)
+
 	
-	sr = frappe.new_doc("Site Request")
-	sr.update(dict(
-		full_name= doc.full_name,
-		email= doc.email,
-		mobile_number= doc.mobile_number,
-		employee_count= doc.employee_count if doc.employee_count else 0,
-		association_name= doc.association_name,
-		activity= doc.activity if doc.activity else ""
-		)
-	)
-	sr.save(ignore_permissions=True)
+def create_site_request(doc, method):
+	if doc.user_type == "Website User" and doc.get_db_value("enabled") == 0 and doc.enabled ==1:
+		customers = frappe.db.get_list("Customer",{"customer_email":doc.email}, ignore_permissions=True)
+		if customers : 
+			customer =frappe.get_doc("Customer",{"customer_email":doc.email})
+			sits_list = frappe.db.get_list("Site Request",{"email":doc.email})
+			if not sits_list:
+				sr = frappe.new_doc("Site Request")
+				sr.update(dict(
+					full_name= doc.full_name,
+					email= doc.email,
+					employee_count= 0,
+					association_name= customer.company_name,
+					subdomain= customer.site_name,
+					)
+				)
+				sr.save(ignore_permissions=True)
+				from bench_manager.bench_manager.doctype.site.site import create_site_internal
+				create_site_internal(doc)

@@ -11,8 +11,7 @@ import random
 from frappe.utils.background_jobs import enqueue
 import subprocess
 from subprocess import check_output, Popen, PIPE
-from bench_manager.utils import verify_whitelisted_call, safe_decode
-from bench_manager.doctype.site.site import pass_exists
+from bench_manager.bench_manager.utils import verify_whitelisted_call, safe_decode
 from frappe.utils.data import get_datetime, now_datetime
 import os, re, json, time, pymysql, shlex
 from subprocess import Popen, PIPE, STDOUT
@@ -20,24 +19,18 @@ import re, shlex
 
 
 @frappe.whitelist(allow_guest=True)
-def verify_account(name, code):
+def verify_account(name =None, code=None):
 	site = frappe.get_doc("Site Request", name)
 	if site.status != "Email Sent":
 		return "The site does not need verification"
 	if site.email_verification_code == code:
-		#~ frappe.db.sql("""update `tabSite Request` set `status`="Site Verified"
-				#~ where namet=%s""", doctype)
 		site.flags.ignore_permissions = True
 		site.status = "Site Verified"
 		site.save(ignore_permissions=1)
 		frappe.db.commit()
 		main_domain = frappe.db.get_value("SAAS Settings", None, "main_domain")
 		mysql_password = frappe.db.get_value("SAAS Settings", None, "mysql_password")
-		#~ create_site(site.subdomain + "nasaqerp.com" , "true" , "123" ,"123",now_datetime())	
-		#~ create_site(site_name=site.subdomain + "."+main_domain , install_erpnext="true" ,
-			#~ mysql_password= "newpwd" ,admin_password="123",key=site.subdomain +"."+main_domain +str(now_datetime()) ,email = site.email)
-
-		return _("https://nama.tech")
+		return _("https:"+main_domain)
 	else:
 		return "Wapi"
 

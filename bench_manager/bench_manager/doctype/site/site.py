@@ -8,6 +8,10 @@ from frappe.model.document import Document
 from subprocess import check_output, Popen, PIPE
 import os, re, json, time, pymysql, shlex
 from bench_manager.bench_manager.utils import verify_whitelisted_call, safe_decode
+from frappe.utils.background_jobs import enqueue
+from datetime import datetime
+import random
+import string
 
 class Site(Document):
 	site_config_fields = ["maintenance_mode", "pause_scheduler", "db_name", "db_password",
@@ -203,7 +207,7 @@ def verify_password(site_name, mysql_password):
 	return "console"
 
 @frappe.whitelist()
-def create_site(site_name, install_erpnext, mysql_password, admin_password, key):
+def create_site(site_name, install_erpnext, mysql_password, admin_password, key,email = None):
 	verify_whitelisted_call()
 	commands = ["bench new-site --mariadb-root-password {mysql_password} --admin-password {admin_password} {site_name}".format(site_name=site_name,
 		admin_password=admin_password, mysql_password=mysql_password)]
@@ -213,10 +217,11 @@ def create_site(site_name, install_erpnext, mysql_password, admin_password, key)
 		if 'erpnext' not in app_list:
 			commands.append("bench get-app erpnext")
 		commands.append("bench --site {site_name} install-app erpnext".format(site_name=site_name))
-		if 'charity' in app_list:
-			commands.append("bench --site {site_name} install-app charity".format(site_name=site_name))
-		if 'stc' in app_list:
-			commands.append("bench --site {site_name} install-app stc".format(site_name=site_name))
+		if 'lite' in app_list:
+			commands.append("bench --site {site_name} install-app lite".format(site_name=site_name))
+		if 'mawred_theme' in app_list:
+			commands.append("bench --site {site_name} install-app mawred_theme".format(site_name=site_name))
+			
 	frappe.enqueue('bench_manager.bench_manager.utils.run_command',
 		commands=commands,
 		doctype="Bench Settings",
@@ -230,3 +235,87 @@ def create_site(site_name, install_erpnext, mysql_password, admin_password, key)
 	doc = frappe.get_doc({'doctype': 'Site', 'site_name': site_name, 'app_list':'frappe', 'developer_flag':1})
 	doc.insert()
 	frappe.db.commit()
+	if email : 
+		sits_list = frappe.get_list("Site Request",{"email":email})
+		if sits_list :
+			site = frappe.get_doc("Site Request",{"email":email})
+
+		email_args = {
+				"recipients": site.email,
+				"sender": None,
+				"subject": "Your New site created "+site_name,
+				"message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
+				"now": True,
+				}
+		enqueue(method=frappe.sendmail, queue='short', timeout=300, is_async=True, **email_args)
+		
+@frappe.whitelist()
+def create_site_internal(doc):
+	verify_whitelisted_call()
+	settings = frappe.get_single('SAAS Settings')
+	install_erpnext = "true"
+	mysql_password = settings.mysql_password
+	admin_password = settings.admin_password
+	email = doc.email 
+	customers = frappe.get_list("Customer",{"customer_email":doc.email}, ignore_permissions=True)
+	if customers : 
+		customer =frappe.get_doc("Customer",{"customer_email":doc.email})
+		site_name = customer.site_name +"."+settings.main_domain
+		letters = string.ascii_lowercase
+		key = ''.join(random.choice(letters) for i in range(10))
+		commands = ["bench new-site --mariadb-root-password {mysql_password} --admin-password {admin_password} {site_name}".format(site_name=site_name,
+			admin_password=admin_password, mysql_password=mysql_password)]
+		site_request = None
+		sr = frappe.get_list("Site Request",{"email":doc.email}, ignore_permissions=True)
+		if sr:
+			site_request = doc.email
+		
+		if not site_exist(site_name):
+			if install_erpnext == "true":
+				with open('apps.txt', 'r') as f:
+					app_list = f.read()
+				if 'erpnext' not in app_list:
+					commands.append("bench get-app erpnext")
+				commands.append("bench --site {site_name} install-app erpnext".format(site_name=site_name))
+				if 'lite' in app_list:
+					commands.append("bench --site {site_name} install-app lite".format(site_name=site_name))
+				if 'mawred_theme' in app_list:
+					commands.append("bench --site {site_name} install-app mawred_theme".format(site_name=site_name))
+					
+			frappe.enqueue('bench_manager.bench_manager.utils.run_command',
+				commands=commands,
+				doctype="Site Request",
+				docname=email,
+				site_request=site_request,
+				key=key
+			)
+			# ~ all_sites = safe_decode(check_output("ls")).strip('\n').split('\n')
+			# ~ while site_name not in all_sites:
+				# ~ time.sleep(2)
+				# ~ print("waiting for site creation...")
+				# ~ all_sites = safe_decode(check_output("ls")).strip('\n').split('\n')
+			# ~ doc = frappe.get_doc({'doctype': 'Site', 'site_name': site_name, 'app_list':'frappe', 'developer_flag':1})
+			# ~ doc.insert()
+			# ~ frappe.db.commit()
+			
+		# ~ if email : 
+			# ~ sits_list = frappe.get_list("Site Request",{"email":email})
+			# ~ if sits_list :
+				# ~ site = frappe.get_doc("Site Request",{"email":email})
+
+			# ~ email_args = {
+					# ~ "recipients": site.email,
+					# ~ "sender": None,
+					# ~ "subject": "Your New site created "+site_name,
+					# ~ "message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
+					# ~ "now": True,
+					# ~ }
+			# ~ enqueue(method=frappe.sendmail, queue='short', timeout=300, is_async=True, **email_args)
+
+def site_exist(site_name):
+	sites = frappe.get_list("Site",{"name":site_name}, ignore_permissions=True)
+	if sites :
+		return True
+	return False
+
+

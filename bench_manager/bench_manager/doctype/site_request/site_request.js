@@ -52,6 +52,7 @@ frappe.ui.form.on('Site Request', {
 										method: 'bench_manager.bench_manager.doctype.site.site.create_site',
 										args: {
 											site_name: dialog.fields_dict.site_name.value,
+											email: frm.doc.email,
 											admin_password: dialog.fields_dict.admin_password.value,
 											mysql_password: dialog.fields_dict.mysql_password.value,
 											install_erpnext: install_erpnext,
