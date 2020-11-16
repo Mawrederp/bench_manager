@@ -62,3 +62,21 @@ def create_site(site_name, install_erpnext, mysql_password, admin_password, key)
 	doc = frappe.get_doc({'doctype': 'Site', 'site_name': site_name, 'app_list':'frappe', 'developer_flag':1})
 	doc.insert()
 	frappe.db.commit()
+
+
+def add_data_to_site(site,full_name,company_name,email):
+	import os,json
+	site_config_path = os.path.join(site, 'site_config.json')
+	common_site_config_path = os.path.join('common_site_config.json')
+
+	with open(site_config_path, 'r') as f:
+		site_config_data = json.load(f)
+		site_config_data["site"] = site
+		site_config_data["full_name"] = full_name
+		site_config_data["company_name"] = company_name
+		site_config_data["email"] = email
+
+	os.remove(site_config_path)
+	with open(site_config_path, 'w') as f:
+			json.dump(site_config_data, f, indent=4)
+			

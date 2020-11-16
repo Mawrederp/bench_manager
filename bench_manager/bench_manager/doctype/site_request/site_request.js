@@ -56,7 +56,8 @@ frappe.ui.form.on('Site Request', {
 											admin_password: dialog.fields_dict.admin_password.value,
 											mysql_password: dialog.fields_dict.mysql_password.value,
 											install_erpnext: install_erpnext,
-											key: key
+											key: key,
+											doc:frm.doc
 										}
 									});
 									dialog.hide();

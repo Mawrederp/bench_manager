@@ -64,12 +64,16 @@ def _close_the_doc(start_time, key, console_dump, status, user,site_request=None
 			customer =frappe.get_doc("Customer",{"customer_email":email})			
 			
 		site_name = frappe.db.get_value('Site Request', site_request, 'subdomain')+"."+main_domain
+		
+		msg = frappe.render_template('bench_manager/templates/emails/site_request.html', context={"customer_name": customer.customer_name, "site": site_name, "user": 'administrator', "passwored": admin_password})
+
 		email_args = {
 			"recipients": email,
 			"sender": None,
-			"subject": "Your New site created "+site_name,
-			"message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
-			"now": True,
+			"subject": "Your site is ready!",
+			# "message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
+			"content": msg,
+			"now": True
 		}
 		enqueue(method=frappe.sendmail, queue='short', timeout=300, is_async=True, **email_args)
 	frappe.publish_realtime(key, '\n\n'+status+'!\nThe operation took '+str(time_taken)+' seconds', user=user)

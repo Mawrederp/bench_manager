@@ -221,11 +221,20 @@ def create_site(site_name, install_erpnext, mysql_password, admin_password, key,
 			commands.append("bench --site {site_name} install-app lite".format(site_name=site_name))
 		if 'mawred_theme' in app_list:
 			commands.append("bench --site {site_name} install-app mawred_theme".format(site_name=site_name))
-			
+		
+		sits_list = frappe.get_list("Site Request",{"email":email})
+		if sits_list :
+			doc = frappe.get_doc("Site Request",{"email":email})
+			a ="bench --site erptag.com execute bench_manager.api.add_data_to_site --kwargs \"{'site':'"+site_name +"','full_name': '"+doc.full_name+ "','company_name': '"+ doc.association_name+"','email': '"+doc.email+"'}\""
+			commands.append(a)
+		
+		
+		if 'loginapp' in app_list:
+			commands.append("bench --site {site_name} install-app loginapp".format(site_name=site_name))	
 	frappe.enqueue('bench_manager.bench_manager.utils.run_command',
 		commands=commands,
 		doctype="Bench Settings",
-		key=key
+		key=key, timeout=1200
 	)
 	all_sites = safe_decode(check_output("ls")).strip('\n').split('\n')
 	while site_name not in all_sites:
@@ -282,12 +291,19 @@ def create_site_internal(doc):
 				if 'mawred_theme' in app_list:
 					commands.append("bench --site {site_name} install-app mawred_theme".format(site_name=site_name))
 					
+				a ="bench --site erptag.com execute bench_manager.api.add_data_to_site --kwargs \"{'site':'"+site_name +"','full_name': '"+doc.full_name+ "','company_name': '"+ customer.company_name+"','email': '"+doc.email+"'}\""
+				commands.append(a)
+				
+				if 'loginapp' in app_list:
+					commands.append("bench --site {site_name} install-app loginapp".format(site_name=site_name))
+					
+					
 			frappe.enqueue('bench_manager.bench_manager.utils.run_command',
 				commands=commands,
 				doctype="Site Request",
 				docname=email,
 				site_request=site_request,
-				key=key
+				key=key, timeout=1200
 			)
 			# ~ all_sites = safe_decode(check_output("ls")).strip('\n').split('\n')
 			# ~ while site_name not in all_sites:

@@ -23,12 +23,16 @@ class SiteRequest(Document):
 		site_name = customer.site_name +"."+settings.main_domain
 		mysql_password = settings.mysql_password
 		admin_password = settings.admin_password
+
+		msg = frappe.render_template('bench_manager/templates/emails/site_request.html', context={"customer_name": customer.customer_name, "site": site_name, "user": 'administrator', "passwored": admin_password})
+
 		email_args = {
 			"recipients": doc.email,
 			"sender": None,
-			"subject": "Your New site created "+site_name,
-			"message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
-			"now": True,
+			"subject": "Your site is ready!",
+			"content": msg,
+			# "message": "site :"+site_name +"<br>"+ "user :"+"administrator"+"<br>"+"passwored :"+admin_password,
+			"now": True
 		}
 		enqueue(method=frappe.sendmail, queue='short', timeout=300, is_async=True, **email_args)
 		
